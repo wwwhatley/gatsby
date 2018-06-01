@@ -1,8 +1,54 @@
 const path = require('path')
 
+const createTagPages = (createPage, posts) => {
+  const tagPageTemplate = path.resolve(`src/templates/tags.js`)
+  const allTagsTemplate = path.resolve(`src/templates/all-tags.js`)
+
+  const postsByTags = {}
+
+  posts.forEach(({ node }) => {
+    if (node.frontmatter.tags) {
+      node.frontmatter.tags.forEach(tag => {
+        if (!postsByTags[tag]) {
+          postsByTags[tag] = []
+        }
+
+        postsByTags[tag].push(node)
+      })
+    }
+  })
+
+  const tags = Object.keys(postsByTags)
+
+  createPage({
+    path: `/tags`,
+    component: allTagsTemplate,
+    context: {
+      tags: tags.sort(),
+    },
+  })
+
+  tags.forEach(tagName => {
+    const posts = postsByTags[tagName]
+
+    createPage({
+      path: `/tags/${tagName}`,
+      component: tagPageTemplate,
+      context: {
+        posts,
+        tagName,
+      },
+    })
+  })
+}
+
 exports.createPages = ({ boundActionCreators, graphql }) => {
   const { createPage } = boundActionCreators
   const blogPostTemplate = path.resolve(`src/templates/blog-post.js`)
+
+  // If you are experiencing issues with the ordering of the posts on the homepage,
+  // replace the `allMarkdownRemark` line below with something like this:
+  // allMarkdownRemark(sort:{fields:[frontmatter___date], order: ASC}) {
 
   return graphql(`
     {
@@ -28,6 +74,8 @@ exports.createPages = ({ boundActionCreators, graphql }) => {
     }
 
     const posts = result.data.allMarkdownRemark.edges
+
+    createTagPages(createPage, posts)
 
     posts.forEach(({ node }, index) => {
       createPage({
